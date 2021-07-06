@@ -5,7 +5,7 @@ PROGNAME = julia
 OUTFILE = out.tga
 IMAGE_VIEWER = feh
 
-.PHONY: clean all test
+.PHONY: clean all test profile
 
 all: $(PROGNAME)
 

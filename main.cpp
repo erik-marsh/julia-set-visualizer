@@ -36,7 +36,7 @@ Complex mapCoord(int x, int y, int imageSize, double escapeRadius)
     Complex result(0.0, 0.0);
     int half = imageSize / 2;
 
-    double ratio = (double) x / half;
+    double ratio = static_cast<double>(x) / half;
     if (ratio < 1.0)
     {
         result.real = -1.0 * escapeRadius * (1.0 - ratio);
@@ -46,7 +46,7 @@ Complex mapCoord(int x, int y, int imageSize, double escapeRadius)
         result.real = escapeRadius * (ratio - 1.0);
     }
 
-    ratio = (double) y / half;
+    ratio = static_cast<double>(y) / half;
     if (ratio < 1.0)
     {
         result.imaginary = -1.0 * escapeRadius * (1.0 - ratio);
