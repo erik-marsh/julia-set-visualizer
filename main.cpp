@@ -89,10 +89,10 @@ std::array<uint8_t, 3> mapColor(int iterations)
     return result;
 }
 
-// parameters: image size, julia set function
+// parameters: image size, julia constant
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    if (argc != 4)
     {
         return -1;
     }
@@ -110,7 +110,10 @@ int main(int argc, char** argv)
         std::make_move_iterator(TGA_HEADER.end())
     );
 
-    Complex juliaConstant(-0.8, 0.156);
+    Complex juliaConstant(
+        static_cast<double>(std::atof(argv[2])),
+        static_cast<double>(std::atof(argv[3]))
+    );
     double escapeRadius = findMinEscapeRadius(juliaConstant);
     double escapeRadiusSquared = escapeRadius * escapeRadius;
 

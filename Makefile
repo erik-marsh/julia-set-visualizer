@@ -16,12 +16,12 @@ clean:
 	rm -f gmon.out
 
 test: clean $(PROGNAME)
-	./$(PROGNAME) 2048
+	./$(PROGNAME) 2048 -0.8 0.156
 	$(IMAGE_VIEWER) $(OUTFILE)
 
 profile: main.cpp clean
 	$(CXX) $(CXX_FLAGS) -g -pg $< -o $@
-	./profile 4096
+	./profile 4096 -0.8 0.156
 	gprof ./profile > profile.out
 
 $(PROGNAME): main.cpp
