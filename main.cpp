@@ -5,9 +5,12 @@
 #include <fstream>
 #include <iterator>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "complex.hpp"
+
+const std::string USAGE_MESSAGE = "Usage: ./julia <image width> <julia constant real> <julia constant imaginary>";
 
 // little endian
 std::array<uint8_t, 18> TGA_HEADER = {
@@ -94,6 +97,7 @@ int main(int argc, char** argv)
 {
     if (argc != 4)
     {
+        std::cout << USAGE_MESSAGE << std::endl;
         return -1;
     }
 
