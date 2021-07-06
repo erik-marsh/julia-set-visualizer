@@ -65,7 +65,7 @@ double findMinEscapeRadius(Complex& c)
     double R = 5.0;
     double step = 0.01;
 
-    while (pow(R, 2.0) - R >= magnitude)
+    while ((R * R) - R >= magnitude)
     {
         R -= step;
     }
@@ -73,12 +73,11 @@ double findMinEscapeRadius(Complex& c)
     return R;
 }
 
-Complex juliaFunction(Complex& z, Complex& c)
+// the reference to z is modified. this speeds up things immensely
+void juliaFunction(Complex& z, Complex& c)
 {
-    Complex result(z);
-    result *= z;
-    result += c;
-    return result;
+    z *= z;
+    z += c;
 }
 
 std::array<uint8_t, 3> mapColor(int iterations)
@@ -113,6 +112,7 @@ int main(int argc, char** argv)
 
     Complex juliaConstant(-0.8, 0.156);
     double escapeRadius = findMinEscapeRadius(juliaConstant);
+    double escapeRadiusSquared = escapeRadius * escapeRadius;
 
     for (int y = 0; y < imageSize; y++)
     {
@@ -124,9 +124,9 @@ int main(int argc, char** argv)
 
             // if the point converges, color a black pixel.
             // else, return a color value proportional to the number of iterations it took to diverge
-            while (iteration <= maxIteration && coord.magnitude() <= escapeRadius)
+            while (iteration <= maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
             {
-                coord = juliaFunction(coord, juliaConstant);
+                juliaFunction(coord, juliaConstant);
                 iteration++;
             }
 

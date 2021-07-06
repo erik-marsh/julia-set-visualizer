@@ -1,19 +1,29 @@
 CXX = g++
-CXX_FLAGS = -std=c++17 -Wall
+CXX_FLAGS = -std=c++17 -Wall -g
 
-.PHONY: clean all
+PROGNAME = julia
+OUTFILE = out.tga
+IMAGE_VIEWER = feh
 
-all: julia
+.PHONY: clean all test
+
+all: $(PROGNAME)
 
 clean:
-	rm -f out.tga
-	rm -f julia
+	rm -f $(OUTFILE)
+	rm -f $(PROGNAME)
+	rm -f profile*
+	rm -f gmon.out
 
-test-noimg: clean julia
-	./julia 2048
+test: clean $(PROGNAME)
+	./$(PROGNAME) 2048
+	$(IMAGE_VIEWER) $(OUTFILE)
 
-test: test-noimg
-	feh out.tga
+profile: main.cpp clean
+	$(CXX) $(CXX_FLAGS) -g -pg $< -o $@
+	./profile 4096
+	gprof ./profile > profile.out
 
-julia: main.cpp
+$(PROGNAME): main.cpp
 	$(CXX) $(CXX_FLAGS) $< -o $@
+	

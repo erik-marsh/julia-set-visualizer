@@ -46,7 +46,7 @@ public:
         double divisor = (rhs.real * rhs.real) + (rhs.imaginary * rhs.imaginary);
         double newReal = ((real * rhs.real) + (imaginary * rhs.imaginary)) / divisor;
         double newImaginary = ((rhs.real * imaginary) - (real * rhs.imaginary)) / divisor;
-        
+
         real = newReal;
         imaginary = newImaginary;
 
@@ -60,6 +60,11 @@ public:
 
     double magnitude()
     {
-        return std::sqrt(std::pow(real, 2.0) + std::pow(imaginary, 2.0));
+        return std::sqrt((real * real) + (imaginary * imaginary));
+    }
+
+    double magnitudeSquared()
+    {
+        return (real * real) + (imaginary * imaginary);
     }
 };
