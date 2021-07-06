@@ -11,7 +11,6 @@ clean:
 
 test-noimg: clean julia
 	./julia 2048
-	feh out.tga
 
 test: test-noimg
 	feh out.tga
