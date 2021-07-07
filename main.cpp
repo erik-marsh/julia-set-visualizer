@@ -83,12 +83,30 @@ void juliaFunction(Complex& z, Complex& c)
     z += c;
 }
 
-std::array<uint8_t, 3> mapColor(int iterations)
+// low -> blue; high -> red
+std::array<uint8_t, 3> mapColor(int iterations, int maxIterations)
 {
     std::array<uint8_t, 3> result = {0x00, 0x00, 0x00};
-    result[0] = static_cast<uint8_t>(iterations);
-    result[1] = static_cast<uint8_t>(iterations >> 8);
-    result[2] = static_cast<uint8_t>(iterations >> 16);
+
+    // cubehelix coloring ("A colour scheme for the display of astronomical intensity images" by D. A. Green, 2011)
+    double lambda = std::pow(static_cast<double>(iterations) / maxIterations, 0.4);
+    double startColor = 3.0;
+    double rotations = 0.5;
+    double hue = 1.0;
+
+    // intermediary values
+    double a = hue * lambda * (1 - lambda) / 2;
+    double phi = 2.0 * M_PI * ((startColor / 3.0) + (rotations * lambda));
+
+    double red = lambda + a * ((-0.14861 * std::cos(phi)) + (1.78277 * std::sin(phi)));
+    double green = lambda + a * ((-0.29227 * std::cos(phi)) + (-0.90649 * std::sin(phi)));
+    double blue = lambda + a * (1.97294 * std::cos(phi));
+
+    // convert [0, 1] -> [0, 255]
+    result[0] = static_cast<uint8_t>(blue * 255);
+    result[1] = static_cast<uint8_t>(green * 255);
+    result[2] = static_cast<uint8_t>(red * 255);
+
     return result;
 }
 
@@ -131,7 +149,7 @@ int main(int argc, char** argv)
 
             // if the point converges, color a black pixel.
             // else, return a color value proportional to the number of iterations it took to diverge
-            while (iteration <= maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
+            while (iteration < maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
             {
                 juliaFunction(coord, juliaConstant);
                 iteration++;
@@ -140,11 +158,11 @@ int main(int argc, char** argv)
             if (iteration == maxIteration)
             {
                 for (int i = 0; i < 3; i++)
-                    imageData.push_back(0x80);
+                    imageData.push_back(0x00);
             }
             else
             {
-                auto color = mapColor(iteration);
+                auto color = mapColor(iteration, maxIteration);
                 for (size_t i = 0; i < color.size(); i++)
                     imageData.push_back(color[i]);
             }
