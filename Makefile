@@ -1,5 +1,5 @@
 CXX = g++
-CXX_FLAGS = -std=c++17 -Wall -g
+CXX_FLAGS = -std=c++17 -Wall -lpthread
 
 PROGNAME = julia
 OUTFILE = out.tga
@@ -16,12 +16,12 @@ clean:
 	rm -f gmon.out
 
 test: clean $(PROGNAME)
-	./$(PROGNAME) 2048 -0.8 0.156
+	./$(PROGNAME) 2048 -0.8 0.156 1
 	$(IMAGE_VIEWER) $(OUTFILE)
 
 profile: main.cpp clean
 	$(CXX) $(CXX_FLAGS) -g -pg $< -o $@
-	./profile 4096 -0.8 0.156
+	./profile 4096 -0.8 0.156 1
 	gprof ./profile > profile.out
 
 $(PROGNAME): main.cpp

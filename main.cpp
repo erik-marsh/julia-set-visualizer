@@ -3,14 +3,16 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "complex.hpp"
 
-const std::string USAGE_MESSAGE = "Usage: ./julia <image width> <julia constant real> <julia constant imaginary>";
+const std::string USAGE_MESSAGE = "Usage: ./julia <image width> <julia constant real> <julia constant imaginary> <threads>";
 
 // little endian
 std::array<uint8_t, 18> TGA_HEADER = {
@@ -110,10 +112,63 @@ std::array<uint8_t, 3> mapColor(int iterations, int maxIterations)
     return result;
 }
 
-// parameters: image size, julia constant
+// [0, (imageSize^2) - 1] -> [(0, 0), (imageSize - 1, imageSize - 1)]
+std::pair<int, int> mapPixel(int index, int imageSize)
+{
+    std::pair<int, int> pixel;
+    pixel.first = index % imageSize;
+    pixel.second = index / imageSize;
+    return pixel;
+}
+
+void workerThread(int lowIndex, int highIndex, int imageSize, Complex juliaConstant, double escapeRadius, double escapeRadiusSquared, std::promise<std::vector<uint8_t>>* returnValue, int threadId)
+{
+    std::vector<uint8_t> imageFragment;
+
+    // std::cout << threadId << ": lowIndex: " << lowIndex << std::endl;
+    // std::cout << threadId << ": highIndex: " << highIndex << std::endl;
+    // std::cout << threadId << ": imageSize: " << imageSize << std::endl;
+    // std::cout << threadId << ": juliaConstant.real: " << juliaConstant.real << std::endl;
+    // std::cout << threadId << ": juliaConstant.imaginary: " << juliaConstant.imaginary << std::endl;
+    // std::cout << threadId << ": escapeRadius: " << escapeRadius << std::endl;
+    // std::cout << threadId << ": escapeRadiusSquared: " << escapeRadiusSquared << std::endl;
+
+    for (int i = lowIndex; i < highIndex; i++)
+    {
+        auto pixel = mapPixel(i, imageSize);
+        auto coord = mapCoord(pixel.first, pixel.second, imageSize, escapeRadius);
+        int iteration = 0;
+        int maxIteration = 1000; 
+
+        // if the point converges, color a black pixel.
+        // else, return a color value proportional to the number of iterations it took to diverge
+        while (iteration < maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
+        {
+            juliaFunction(coord, juliaConstant);
+            iteration++;
+        }
+
+        if (iteration == maxIteration)
+        {
+            for (int i = 0; i < 3; i++)
+                imageFragment.push_back(0x00);
+        }
+        else
+        {
+            auto color = mapColor(iteration, maxIteration);
+            for (size_t i = 0; i < color.size(); i++)
+                imageFragment.push_back(color[i]);
+        }
+    }
+
+    //std::cout << "imageFragment.size(): " << imageFragment.size() << std::endl;
+    returnValue->set_value(imageFragment);
+}
+
+// parameters: image size, julia constant, number of threads to compute with
 int main(int argc, char** argv)
 {
-    if (argc != 4)
+    if (argc != 5)
     {
         std::cout << USAGE_MESSAGE << std::endl;
         return -1;
@@ -139,34 +194,81 @@ int main(int argc, char** argv)
     double escapeRadius = findMinEscapeRadius(juliaConstant);
     double escapeRadiusSquared = escapeRadius * escapeRadius;
 
-    for (int y = 0; y < imageSize; y++)
+    int threads = std::atoi(argv[4]);
+    std::vector<std::vector<uint8_t>> imageFragments(threads);
+    std::vector<std::thread> threadPool;
+    std::vector<std::promise<std::vector<uint8_t>>> promisePool(threads);
+    std::vector<std::future<std::vector<uint8_t>>> futurePool;
+    int pixelsPerThread = (imageSize * imageSize) / threads;
+
+    for (int i = 0; i < threads - 1; i++)
     {
-        for (int x = 0; x < imageSize; x++)
-        {
-            auto coord = mapCoord(x, y, imageSize, escapeRadius);
-            int iteration = 0;
-            int maxIteration = 1000; 
+        futurePool.push_back(promisePool[i].get_future());
+        threadPool.push_back(std::thread(
+            workerThread,
+            i * pixelsPerThread,
+            ((i + 1) * pixelsPerThread),
+            imageSize,
+            juliaConstant,
+            escapeRadius,
+            escapeRadiusSquared,
+            &promisePool[i],
+            i
+        ));
+    }
 
-            // if the point converges, color a black pixel.
-            // else, return a color value proportional to the number of iterations it took to diverge
-            while (iteration < maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
-            {
-                juliaFunction(coord, juliaConstant);
-                iteration++;
-            }
+    futurePool.push_back(promisePool[promisePool.size() - 1].get_future());
+    threadPool.push_back(std::thread(
+        workerThread,
+        (threads - 1) * pixelsPerThread,
+        imageSize * imageSize,
+        imageSize,
+        juliaConstant,
+        escapeRadius,
+        escapeRadiusSquared,
+        &promisePool[promisePool.size() - 1],
+        promisePool.size() - 1
+    ));
 
-            if (iteration == maxIteration)
-            {
-                for (int i = 0; i < 3; i++)
-                    imageData.push_back(0x00);
-            }
-            else
-            {
-                auto color = mapColor(iteration, maxIteration);
-                for (size_t i = 0; i < color.size(); i++)
-                    imageData.push_back(color[i]);
-            }
-        }
+    // for (int y = 0; y < imageSize; y++)
+    // {
+    //     for (int x = 0; x < imageSize; x++)
+    //     {
+    //         auto coord = mapCoord(x, y, imageSize, escapeRadius);
+    //         int iteration = 0;
+    //         int maxIteration = 1000; 
+
+    //         // if the point converges, color a black pixel.
+    //         // else, return a color value proportional to the number of iterations it took to diverge
+    //         while (iteration < maxIteration && coord.magnitudeSquared() <= escapeRadiusSquared)
+    //         {
+    //             juliaFunction(coord, juliaConstant);
+    //             iteration++;
+    //         }
+
+    //         if (iteration == maxIteration)
+    //         {
+    //             for (int i = 0; i < 3; i++)
+    //                 imageData.push_back(0x00);
+    //         }
+    //         else
+    //         {
+    //             auto color = mapColor(iteration, maxIteration);
+    //             for (size_t i = 0; i < color.size(); i++)
+    //                 imageData.push_back(color[i]);
+    //         }
+    //     }
+    // }
+
+    for (int i = 0; i < threads; i++)
+    {
+        threadPool[i].join();
+        auto returnValue = futurePool[i].get();
+        imageData.insert(
+            imageData.end(),
+            std::make_move_iterator(returnValue.begin()),
+            std::make_move_iterator(returnValue.end())
+        );
     }
 
     imageData.insert(
