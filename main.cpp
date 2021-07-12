@@ -36,7 +36,7 @@ const std::array<uint8_t, 26> TGA_FOOTER = {
 };
 
 // [(0, 0), (imageSize, imageSize)] -> [(-escapeRadius, -escapeRadius), (escapeRadius, escapeRadius)]
-Complex mapCoord(int x, int y, int imageSize, double escapeRadius)
+Complex mapCoord(const int x, const int y, const int imageSize, const double escapeRadius)
 {
     Complex result(0.0, 0.0);
     int half = imageSize / 2;
@@ -64,7 +64,7 @@ Complex mapCoord(int x, int y, int imageSize, double escapeRadius)
     return result;
 }
 
-double findMinEscapeRadius(Complex& c)
+const double findMinEscapeRadius(const Complex& c)
 {
     double magnitude = c.magnitude();
     double R = 5.0;
@@ -79,30 +79,30 @@ double findMinEscapeRadius(Complex& c)
 }
 
 // the reference to z is modified. this speeds up things immensely
-void juliaFunction(Complex& z, Complex& c)
+inline void juliaFunction(Complex& z, const Complex& c)
 {
     z *= z;
     z += c;
 }
 
 // low -> blue; high -> red
-std::array<uint8_t, 3> mapColor(int iterations, int maxIterations)
+const std::array<uint8_t, 3> mapColor(const int iterations, const int maxIterations)
 {
     std::array<uint8_t, 3> result = {0x00, 0x00, 0x00};
 
     // cubehelix coloring ("A colour scheme for the display of astronomical intensity images" by D. A. Green, 2011)
-    double lambda = std::pow(static_cast<double>(iterations) / maxIterations, 0.4);
-    double startColor = 3.0;
-    double rotations = 0.5;
-    double hue = 1.0;
+    const double lambda = std::pow(static_cast<double>(iterations) / maxIterations, 0.4);
+    const double startColor = 3.0;
+    const double rotations = 0.5;
+    const double hue = 1.0;
 
     // intermediary values
-    double a = hue * lambda * (1 - lambda) / 2;
-    double phi = 2.0 * M_PI * ((startColor / 3.0) + (rotations * lambda));
+    const double a = hue * lambda * (1 - lambda) / 2;
+    const double phi = 2.0 * M_PI * ((startColor / 3.0) + (rotations * lambda));
 
-    double red = lambda + a * ((-0.14861 * std::cos(phi)) + (1.78277 * std::sin(phi)));
-    double green = lambda + a * ((-0.29227 * std::cos(phi)) + (-0.90649 * std::sin(phi)));
-    double blue = lambda + a * (1.97294 * std::cos(phi));
+    const double red = lambda + a * ((-0.14861 * std::cos(phi)) + (1.78277 * std::sin(phi)));
+    const double green = lambda + a * ((-0.29227 * std::cos(phi)) + (-0.90649 * std::sin(phi)));
+    const double blue = lambda + a * (1.97294 * std::cos(phi));
 
     // convert [0, 1] -> [0, 255]
     result[0] = static_cast<uint8_t>(blue * 255);
@@ -113,7 +113,7 @@ std::array<uint8_t, 3> mapColor(int iterations, int maxIterations)
 }
 
 // [0, (imageSize^2) - 1] -> [(0, 0), (imageSize - 1, imageSize - 1)]
-std::pair<int, int> mapPixel(int index, int imageSize)
+const std::pair<int, int> mapPixel(const int index, const int imageSize)
 {
     std::pair<int, int> pixel;
     pixel.first = index % imageSize;
@@ -121,8 +121,11 @@ std::pair<int, int> mapPixel(int index, int imageSize)
     return pixel;
 }
 
-void workerThread(int lowIndex, int highIndex, int imageSize, Complex juliaConstant, double escapeRadius, double escapeRadiusSquared, std::promise<std::vector<uint8_t>>* returnValue, int threadId)
-{
+void workerThread(
+    const int lowIndex, const int highIndex, const int imageSize,
+    const Complex juliaConstant, const double escapeRadius, const double escapeRadiusSquared,
+    std::promise<std::vector<uint8_t>>* returnValue, const int threadId
+) {
     std::vector<uint8_t> imageFragment;
 
     // std::cout << threadId << ": lowIndex: " << lowIndex << std::endl;
@@ -174,7 +177,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    int imageSize = std::atoi(argv[1]);
+    const int imageSize = std::atoi(argv[1]);
 
     TGA_HEADER[12] = static_cast<uint8_t>(imageSize % 256);
     TGA_HEADER[13] = static_cast<uint8_t>(imageSize / 256);
@@ -191,15 +194,15 @@ int main(int argc, char** argv)
         static_cast<double>(std::atof(argv[2])),
         static_cast<double>(std::atof(argv[3]))
     );
-    double escapeRadius = findMinEscapeRadius(juliaConstant);
-    double escapeRadiusSquared = escapeRadius * escapeRadius;
+    const double escapeRadius = findMinEscapeRadius(juliaConstant);
+    const double escapeRadiusSquared = escapeRadius * escapeRadius;
 
-    int threads = std::atoi(argv[4]);
+    const int threads = std::atoi(argv[4]);
     std::vector<std::vector<uint8_t>> imageFragments(threads);
     std::vector<std::thread> threadPool;
     std::vector<std::promise<std::vector<uint8_t>>> promisePool(threads);
     std::vector<std::future<std::vector<uint8_t>>> futurePool;
-    int pixelsPerThread = (imageSize * imageSize) / threads;
+    const int pixelsPerThread = (imageSize * imageSize) / threads;
 
     for (int i = 0; i < threads - 1; i++)
     {

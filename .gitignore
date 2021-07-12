@@ -3,3 +3,4 @@ out.tga
 profile*
 bench.sh
 .vscode/
+gmon.out

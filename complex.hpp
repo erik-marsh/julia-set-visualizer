@@ -53,17 +53,17 @@ public:
         return *this;
     }
 
-    Complex conjugate()
+    Complex conjugate() const 
     {
         return Complex(real, -imaginary);
     }
 
-    double magnitude()
+    double magnitude() const 
     {
         return std::sqrt((real * real) + (imaginary * imaginary));
     }
 
-    double magnitudeSquared()
+    double magnitudeSquared() const 
     {
         return (real * real) + (imaginary * imaginary);
     }

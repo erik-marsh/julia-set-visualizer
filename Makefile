@@ -24,6 +24,17 @@ profile: main.cpp clean
 	./profile 4096 -0.8 0.156 1
 	gprof ./profile > profile.out
 
+profile-long: main.cpp clean
+	$(CXX) $(CXX_FLAGS) -g -pg $< -o $@
+	./profile 4096 -0.8 0.156 1
+	gprof ./profile > profile-1t.out
+	./profile 4096 -0.8 0.156 2
+	gprof ./profile > profile-2t.out
+	./profile 4096 -0.8 0.156 3
+	gprof ./profile > profile-3t.out
+	./profile 4096 -0.8 0.156 4
+	gprof ./profile > profile-4t.out
+
 $(PROGNAME): main.cpp
 	$(CXX) $(CXX_FLAGS) $< -o $@
 	
