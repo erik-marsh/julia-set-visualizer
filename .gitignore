@@ -4,3 +4,4 @@ profile*
 bench.sh
 .vscode/
 gmon.out
+old.cpp
