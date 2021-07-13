@@ -35,12 +35,19 @@ const std::array<uint8_t, 26> TGA_FOOTER = {
     '.', '\0' // required
 };
 
-Complex mapCoord(const int x, const int y, const int imageSize, const double escapeRadius);
-const std::array<uint8_t, 3> mapColor(const int iterations, const int maxIterations);
-const std::pair<int, int> mapPixel(const int index, const int imageSize);
+struct Pixel
+{
+    int x;
+    int y;
+};
+
+using ColorBGR = std::array<uint8_t, 3>;
+
 const double findMinEscapeRadius(const Complex& c);
 void juliaFunction(Complex& z, const Complex& c);
-
+Complex mapCoord(const int x, const int y, const int imageSize, const double escapeRadius);
+const ColorBGR mapColor(const int iterations, const int maxIterations);
+const Pixel mapPixel(const int index, const int imageSize);
 void workerThread(
     const int lowIndex, const int highIndex, const int imageSize,
     const Complex juliaConstant, const double escapeRadius, const double escapeRadiusSquared,
@@ -168,9 +175,9 @@ Complex mapCoord(const int x, const int y, const int imageSize, const double esc
     return result;
 }
 
-const std::array<uint8_t, 3> mapColor(const int iterations, const int maxIterations)
+const ColorBGR mapColor(const int iterations, const int maxIterations)
 {
-    std::array<uint8_t, 3> result = {0x00, 0x00, 0x00};
+    ColorBGR result = {0x00, 0x00, 0x00};
 
     // cubehelix coloring ("A colour scheme for the display of astronomical intensity images" by D. A. Green, 2011)
     const double lambda = std::pow(static_cast<double>(iterations) / maxIterations, 0.4);
@@ -195,11 +202,11 @@ const std::array<uint8_t, 3> mapColor(const int iterations, const int maxIterati
 }
 
 // [0, (imageSize^2) - 1] -> [(0, 0), (imageSize - 1, imageSize - 1)]
-const std::pair<int, int> mapPixel(const int index, const int imageSize)
+const Pixel mapPixel(const int index, const int imageSize)
 {
-    std::pair<int, int> pixel;
-    pixel.first = index % imageSize;
-    pixel.second = index / imageSize;
+    Pixel pixel{index % imageSize, index / imageSize};
+    // pixel.first = index % imageSize;
+    // pixel.second = index / imageSize;
     return pixel;
 }
 
@@ -213,7 +220,7 @@ void workerThread(
     for (int i = lowIndex; i < highIndex; i++)
     {
         auto pixel = mapPixel(i, imageSize);
-        auto coord = mapCoord(pixel.first, pixel.second, imageSize, escapeRadius);
+        auto coord = mapCoord(pixel.x, pixel.y, imageSize, escapeRadius);
         int iteration = 0;
         int maxIteration = 1000; 
 
