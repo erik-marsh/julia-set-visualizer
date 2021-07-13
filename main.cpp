@@ -69,6 +69,7 @@ int main(int argc, char** argv)
     TGA_HEADER[13] = static_cast<uint8_t>(imageSize / 256);
     TGA_HEADER[14] = TGA_HEADER[12];
     TGA_HEADER[15] = TGA_HEADER[13];
+
     std::vector<uint8_t> imageData;
     imageData.insert(
         imageData.end(),
@@ -76,7 +77,7 @@ int main(int argc, char** argv)
         std::make_move_iterator(TGA_HEADER.end())
     );
 
-    Complex juliaConstant(
+    const Complex juliaConstant(
         static_cast<double>(std::atof(argv[2])),
         static_cast<double>(std::atof(argv[3]))
     );
@@ -84,20 +85,18 @@ int main(int argc, char** argv)
     const double escapeRadiusSquared = escapeRadius * escapeRadius;
 
     const int threads = std::atoi(argv[4]);
+    const int pixelsPerThread = (imageSize * imageSize) / threads;
     std::vector<std::vector<uint8_t>> imageFragments(threads);
     std::vector<std::thread> threadPool;
     std::vector<std::promise<std::vector<uint8_t>>> promisePool(threads);
     std::vector<std::future<std::vector<uint8_t>>> futurePool;
-    const int pixelsPerThread = (imageSize * imageSize) / threads;
 
     for (int i = 0; i < threads; i++)
     {
         // this is just more concise than doing out of the loop
         int upperBound = (i + 1) * pixelsPerThread;
         if (i == threads - 1)
-        {
             upperBound = imageSize * imageSize; // helps prevent an integer rounding error when threads != 2^n
-        }
 
         futurePool.push_back(promisePool[i].get_future());
         threadPool.push_back(std::thread(
@@ -205,8 +204,6 @@ const ColorBGR mapColor(const int iterations, const int maxIterations)
 const Pixel mapPixel(const int index, const int imageSize)
 {
     Pixel pixel{index % imageSize, index / imageSize};
-    // pixel.first = index % imageSize;
-    // pixel.second = index / imageSize;
     return pixel;
 }
 
