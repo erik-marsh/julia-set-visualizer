@@ -1,4 +1,4 @@
-// Simple overloads for complex number operations
+// Simple representation of complex numbers with some common operations implemented.
 
 #include <cmath>
 

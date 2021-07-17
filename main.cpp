@@ -4,15 +4,26 @@
 #include <fstream>
 #include <future>
 #include <iostream>
-#include <string>
 #include <thread>
 #include <vector>
 
 #include "complex.hpp"
 
-const std::string USAGE_MESSAGE = "Usage: ./julia <image width> <julia constant real> <julia constant imaginary> <threads>";
+void printUsageMessage()
+{
+    std::cout << "Julia set visualizer\n"
+              << "Usage: ./julia <image width> <julia constant real> <julia constant imaginary> <threads>\n"
+              << "Parameters: <image size>: width AND height of the output image. max: 65535\n"
+              << "            <julia constant real>: real component of the julia constant\n"
+              << "            <julia constant imaginary>: imaginary component of the julia constant\n"
+              << "            <threads>: number of parallel computations to split the calculations into.\n"
+              << "                       useful for red-ucing program runtime"
+              << std::endl;
+}
 
-// little endian
+// Header for a TGA file. Multi-byte values are little endian.
+// This must be modifed after the program starts to inject the image size.
+// Note that the output image will be uncompressed.
 std::array<uint8_t, 18> TGA_HEADER = {
     0x00, // ID field length
     0x00, // no color map
@@ -26,6 +37,7 @@ std::array<uint8_t, 18> TGA_HEADER = {
     0x00  // image descriptor
 };
 
+// Footer for a TGA file.
 const std::array<uint8_t, 26> TGA_FOOTER = {
     0x00, 0x00, 0x00, 0x00, // extentsion area offset, not present
     0x00, 0x00, 0x00, 0x00, // developer directory offset, not present
@@ -33,12 +45,14 @@ const std::array<uint8_t, 26> TGA_FOOTER = {
     '.', '\0' // required
 };
 
+// Wrapper for pixel coordinates.
 struct Pixel
 {
     int x;
     int y;
 };
 
+// An RGB color value, but in reverse order (blue, green, red) due to little endian byte ordering.
 using ColorBGR = std::array<uint8_t, 3>;
 
 const double findMinEscapeRadius(const Complex& c);
@@ -57,7 +71,7 @@ int main(int argc, char** argv)
 {
     if (argc != 5)
     {
-        std::cout << USAGE_MESSAGE << std::endl;
+        printUsageMessage();
         return -1;
     }
 
@@ -68,6 +82,7 @@ int main(int argc, char** argv)
     TGA_HEADER[14] = TGA_HEADER[12];
     TGA_HEADER[15] = TGA_HEADER[13];
 
+    // imageData is the sequence of bytes representing the output file.
     std::vector<uint8_t> imageData;
     imageData.insert(
         imageData.end(),
@@ -89,9 +104,10 @@ int main(int argc, char** argv)
     std::vector<std::promise<std::vector<uint8_t>>> promisePool(threads);
     std::vector<std::future<std::vector<uint8_t>>> futurePool;
 
+    // splits the workload of the calculations between multiple threads
     for (int i = 0; i < threads; i++)
     {
-        // this is just more concise than doing out of the loop
+        // this is just more concise than calculating upperBound out of the loop
         int upperBound = (i + 1) * pixelsPerThread;
         if (i == threads - 1)
             upperBound = imageSize * imageSize; // helps prevent an integer rounding error when threads != 2^n
@@ -105,6 +121,8 @@ int main(int argc, char** argv)
         ));
     }
 
+    // waits for the threads to return and aggregates the calculated color values into the final image
+    // threads are joined in the order that they were created, meaning the image data is also in order
     for (int i = 0; i < threads; i++)
     {
         threadPool[i].join();
@@ -132,6 +150,8 @@ int main(int argc, char** argv)
     return 0;
 }
 
+// This function finds the minimum escape radius for a complex constant c. Starts at 5.
+// Mathematically, this function approximates the minimum value of R such that R^2 - R >= |c|
 const double findMinEscapeRadius(const Complex& c)
 {
     const double magnitude = c.magnitude();
@@ -144,14 +164,21 @@ const double findMinEscapeRadius(const Complex& c)
     return R;
 }
 
-// the reference to z is modified. this speeds up things immensely
+// NOTE: The reference to z is modifed. (Modifying the reference to z appears to improve performance as opposed to returning a new value.)
+// This function performs a single iteration of the recursive function f(z) = z^2 + c,
+// where z and c are complex numbers, and c is a constant.
+// Mathematically speaking, this function is used to define a Julia set.
+// If the function converges for a value of z, z is in the Julia set. Otherwise, it is not in the Julia set.
 inline void juliaFunction(Complex& z, const Complex& c)
 {
     z *= z;
     z += c;
 }
 
-// [(0, 0), (imageSize, imageSize)] -> [(-escapeRadius, -escapeRadius), (escapeRadius, escapeRadius)]
+// This function maps a pixel coordinate to a coordinate on the complex plane.
+// Pixel coordinates start from the bottom left of the image. x increases to the right, and y increases upward.
+// The complex plane appears how one would expect: the center of the image represents 0 + 0i. The axes are as one would expect.
+// The mapping is: [(0, 0), (imageSize, imageSize)] -> [(-escapeRadius, -escapeRadius), (escapeRadius, escapeRadius)]
 Complex mapCoord(const int x, const int y, const int imageSize, const double escapeRadius)
 {
     Complex result(0.0, 0.0);
@@ -172,11 +199,14 @@ Complex mapCoord(const int x, const int y, const int imageSize, const double esc
     return result;
 }
 
+// This function maps a number of iterations to a color using the cubehelix coloring scheme.
+// The ratio of iterations to the maximum iterations is used as input to the coloring function.
+// For more information, see "A colour scheme for the display of astronomical intensity images" by D. A. Green (2011).
 const ColorBGR mapColor(const int iterations, const int maxIterations)
 {
     ColorBGR result = {0x00, 0x00, 0x00};
 
-    // cubehelix coloring ("A colour scheme for the display of astronomical intensity images" by D. A. Green, 2011)
+    // function parameters
     const double lambda = std::pow(static_cast<double>(iterations) / maxIterations, 0.4);
     const double startColor = 3.0;
     const double rotations = 0.5;
@@ -186,6 +216,7 @@ const ColorBGR mapColor(const int iterations, const int maxIterations)
     const double a = hue * lambda * (1 - lambda) / 2;
     const double phi = 2.0 * M_PI * ((startColor / 3.0) + (rotations * lambda));
 
+    // calculation of color values
     const double red = lambda + a * ((-0.14861 * std::cos(phi)) + (1.78277 * std::sin(phi)));
     const double green = lambda + a * ((-0.29227 * std::cos(phi)) + (-0.90649 * std::sin(phi)));
     const double blue = lambda + a * (1.97294 * std::cos(phi));
@@ -198,13 +229,22 @@ const ColorBGR mapColor(const int iterations, const int maxIterations)
     return result;
 }
 
-// [0, (imageSize^2) - 1] -> [(0, 0), (imageSize - 1, imageSize - 1)]
+// This function maps an index into an array of size imageSize^2 to a pixel coordinate.
+// This is done since iterating over x and y values in nested loops when the threads parameter
+// is not a power of 2 becomes too complex.
+// The mapping is [0, (imageSize^2) - 1] -> [(0, 0), (imageSize - 1, imageSize - 1)]
 const Pixel mapPixel(const int index, const int imageSize)
 {
     Pixel pixel{index % imageSize, index / imageSize};
     return pixel;
 }
 
+// This function is the worker thread that calculations are divided into.
+// The calculations are as follows:
+//     Map an index from [lowIndex, highIndex] to a pixel coordinate
+//     Map the pixel coordinate to its corresponding coordinate on the complex plane
+//     Perform f(z) = z^2 + c until it converges or diverges
+//     Color the corresponding pixel according to how much it diverges
 void workerThread(
     const int lowIndex, const int highIndex, const int imageSize,
     const Complex juliaConstant, const double escapeRadius, const double escapeRadiusSquared,
