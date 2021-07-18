@@ -1,7 +1,5 @@
 // Simple representation of complex numbers with some common operations implemented.
 
-#include <cmath>
-
 class Complex
 {
 public:
